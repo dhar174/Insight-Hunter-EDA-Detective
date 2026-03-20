@@ -1,112 +1,67 @@
-Insight Hunter: EDA Detective
-Purpose
+# Join Quest
 
-Teach students exploratory data analysis and chart selection through pattern-finding missions.
+Join Quest is a gamified React + TypeScript web app for teaching data science students how SQL-style table relationships translate into real `pandas` work in Python.
 
-Learning goals
+Students play as an analyst answering stakeholder requests across:
 
-Students should practice:
+- e-commerce operations
+- HR analytics
+- school analytics
 
-reading summary statistics
+The app teaches:
 
-spotting trends and outliers
+- SQL-to-pandas loading with `pd.read_sql(...)`
+- join keys and relationship reasoning
+- `merge()` with practical inner vs left join choices
+- grouped summaries and multi-table business questions
+- analyst-style interpretation after the code runs
 
-matching chart type to question
+## Experience
 
-comparing groups
+Each mission includes:
 
-identifying possible relationships
+- a business request panel with why the question matters
+- an interactive table explorer with schema, sample rows, and key hints
+- a relationship map for join planning
+- a Python editor powered by a Pyodide worker
+- output previews for `merged` and `result`
+- interpretation prompts, hints, and scoring
 
-turning observations into insights
+Progress is saved locally in the browser with unlocks, best scores, attempts, and hint usage.
 
-Core concept
+## Stack
 
-The player is a data detective investigating business mysteries by exploring datasets and uncovering evidence.
+- React 19
+- Vite
+- TypeScript
+- React Router
+- CodeMirror 6
+- Pyodide in a dedicated Web Worker
+- Vitest + Testing Library
+- Playwright smoke script
 
-Gameplay loop
+## Run locally
 
-Receive a business question
+```bash
+npm install
+npm run dev
+```
 
-Inspect summary cards and dataset snippets
+Open the local Vite URL and start with `Boot the Warehouse Feed`.
 
-Choose the right chart or statistic
+## Scripts
 
-Analyze the result
+```bash
+npm run build
+npm run lint
+npm run test:run
+npm run test:e2e
+```
 
-Submit the best insight statement
+`test:e2e` runs a browser smoke flow that opens the onboarding mission, waits for Pyodide to initialize, grades the mission, and checks the progress screen.
 
-Unlock the next case
+## Notes
 
-Main mechanics
-
-Question cards like:
-
-Which product category sells best?
-
-Are there outliers in customer spending?
-
-Which region underperformed?
-
-Does study time relate to exam score?
-
-Chart choice mechanic
-
-choose between bar, line, histogram, box plot, scatter plot
-
-EDA evidence board
-
-summary stats
-
-distributions
-
-grouped counts
-
-correlation clue cards
-
-Insight drafting
-
-player chooses or writes the best interpretation
-
-Red herring answers to teach common mistakes
-
-Gamification
-
-score for correct chart choice
-
-bonus for strong interpretation
-
-streak multiplier for consecutive correct insights
-
-detective rank progression
-
-badge examples:
-
-Outlier Spotter
-
-Chart Whisperer
-
-GroupBy Genius
-
-Example datasets
-
-retail sales
-
-employee attrition
-
-housing prices
-
-student performance
-
-Win condition
-
-Player solves the case by selecting appropriate visuals and making valid evidence-based conclusions.
-
-Tech notes
-
-Front end: HTML/CSS/JS or React
-
-Use pre-generated chart images or lightweight chart rendering
-
-Each scenario maps acceptable chart types and valid insight patterns
-
-Optional free-response mode with keyword-based scoring for insight text
+- The Python runtime is fully client-side. There is no backend or user account system in v1.
+- Mission grading uses hidden expected outputs plus rubric-style interpretation checks; it does not use an LLM.
+- Vite currently warns that the Pyodide bundle is large. That is expected for this version because the app ships a browser Python runtime.
