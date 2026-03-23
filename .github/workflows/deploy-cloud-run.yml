@@ -1,0 +1,131 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cloud-run-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run unit tests
+        run: npm run test:run
+
+      - name: Resolve deployment configuration
+        id: config
+        env:
+          INPUT_GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          INPUT_GCP_REGION: ${{ vars.GCP_REGION }}
+          INPUT_GCP_ARTIFACT_REPOSITORY: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
+          INPUT_CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+          INPUT_GCP_WORKLOAD_IDENTITY_PROVIDER_VAR: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          INPUT_GCP_WORKLOAD_IDENTITY_PROVIDER_SECRET: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          INPUT_GCP_SERVICE_ACCOUNT_VAR: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          INPUT_GCP_SERVICE_ACCOUNT_SECRET: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+
+          PROJECT_ID="${INPUT_GCP_PROJECT_ID}"
+          REGION="${INPUT_GCP_REGION:-us-central1}"
+          REPOSITORY="${INPUT_GCP_ARTIFACT_REPOSITORY:-join-quest}"
+          SERVICE="${INPUT_CLOUD_RUN_SERVICE:-join-quest}"
+
+          if [ -n "${INPUT_GCP_WORKLOAD_IDENTITY_PROVIDER_VAR}" ]; then
+            WORKLOAD_IDENTITY_PROVIDER="${INPUT_GCP_WORKLOAD_IDENTITY_PROVIDER_VAR}"
+          else
+            WORKLOAD_IDENTITY_PROVIDER="${INPUT_GCP_WORKLOAD_IDENTITY_PROVIDER_SECRET}"
+          fi
+
+          if [ -n "${INPUT_GCP_SERVICE_ACCOUNT_VAR}" ]; then
+            SERVICE_ACCOUNT="${INPUT_GCP_SERVICE_ACCOUNT_VAR}"
+          else
+            SERVICE_ACCOUNT="${INPUT_GCP_SERVICE_ACCOUNT_SECRET}"
+          fi
+
+          if [ -z "${PROJECT_ID}" ]; then
+            echo "::error::Missing GCP_PROJECT_ID repository variable."
+            exit 1
+          fi
+
+          if [ -z "${WORKLOAD_IDENTITY_PROVIDER}" ]; then
+            echo "::error::Missing GCP_WORKLOAD_IDENTITY_PROVIDER repository variable or secret."
+            exit 1
+          fi
+
+          if [ -z "${SERVICE_ACCOUNT}" ]; then
+            echo "::error::Missing GCP_SERVICE_ACCOUNT repository variable or secret."
+            exit 1
+          fi
+
+          IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${SERVICE}:${GITHUB_SHA}"
+
+          echo "gcp_project_id=${PROJECT_ID}" >> "${GITHUB_OUTPUT}"
+          echo "gcp_region=${REGION}" >> "${GITHUB_OUTPUT}"
+          echo "gcp_artifact_repository=${REPOSITORY}" >> "${GITHUB_OUTPUT}"
+          echo "cloud_run_service=${SERVICE}" >> "${GITHUB_OUTPUT}"
+          echo "gcp_workload_identity_provider=${WORKLOAD_IDENTITY_PROVIDER}" >> "${GITHUB_OUTPUT}"
+          echo "gcp_service_account=${SERVICE_ACCOUNT}" >> "${GITHUB_OUTPUT}"
+          echo "image_uri=${IMAGE_URI}" >> "${GITHUB_OUTPUT}"
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ steps.config.outputs.gcp_project_id }}
+          workload_identity_provider: ${{ steps.config.outputs.gcp_workload_identity_provider }}
+          service_account: ${{ steps.config.outputs.gcp_service_account }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          project_id: ${{ steps.config.outputs.gcp_project_id }}
+          version: '>= 363.0.0'
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ steps.config.outputs.gcp_region }}-docker.pkg.dev --quiet
+
+      - name: Build container image
+        run: docker build --tag "${{ steps.config.outputs.image_uri }}" .
+
+      - name: Push container image
+        run: docker push "${{ steps.config.outputs.image_uri }}"
+
+      - name: Deploy to Cloud Run
+        run: >
+          gcloud run deploy "${{ steps.config.outputs.cloud_run_service }}"
+          --image "${{ steps.config.outputs.image_uri }}"
+          --region "${{ steps.config.outputs.gcp_region }}"
+          --platform managed
+          --allow-unauthenticated
+          --port 8080
+
+      - name: Show deployed service URL
+        run: >
+          gcloud run services describe "${{ steps.config.outputs.cloud_run_service }}"
+          --region "${{ steps.config.outputs.gcp_region }}"
+          --format='value(status.url)'

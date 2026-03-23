@@ -1,0 +1,23 @@
+# Dependencies and build output
+node_modules
+dist
+dist-ssr
+
+# Local and Git metadata
+.git
+.github
+.vscode
+.idea
+.DS_Store
+
+# Temporary project artifacts
+joinquest-temp
+coverage
+playwright-report
+test-results
+*.local
+*.log
+logs
+
+# Auth action generated credentials
+gha-creds-*.json
