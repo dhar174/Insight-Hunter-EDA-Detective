@@ -142,7 +142,9 @@ export WORKLOAD_IDENTITY_POOL_ID="$(gcloud iam workload-identity-pools describe 
   --location="global" \
   --format="value(name)")"
 
-gcloud iam workload-identity-pools providers create-oidc "${GITHUB_REPO}" \
+export WORKLOAD_IDENTITY_PROVIDER_ID="github-actions"
+
+gcloud iam workload-identity-pools providers create-oidc "${WORKLOAD_IDENTITY_PROVIDER_ID}" \
   --project="${PROJECT_ID}" \
   --location="global" \
   --workload-identity-pool="github" \
@@ -157,7 +159,7 @@ gcloud iam service-accounts add-iam-policy-binding \
   --role="roles/iam.workloadIdentityUser" \
   --member="principalSet://iam.googleapis.com/${WORKLOAD_IDENTITY_POOL_ID}/attribute.repository/${GITHUB_ORG}/${GITHUB_REPO}"
 
-export WORKLOAD_IDENTITY_PROVIDER="$(gcloud iam workload-identity-pools providers describe "${GITHUB_REPO}" \
+export WORKLOAD_IDENTITY_PROVIDER="$(gcloud iam workload-identity-pools providers describe "${WORKLOAD_IDENTITY_PROVIDER_ID}" \
   --project="${PROJECT_ID}" \
   --location="global" \
   --workload-identity-pool="github" \
