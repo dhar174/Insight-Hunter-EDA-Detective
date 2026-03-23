@@ -37,9 +37,6 @@ jobs:
       - name: Run unit tests
         run: npm run test:run
 
-      - name: Build app
-        run: npm run build
-
       - name: Resolve deployment configuration
         id: config
         env:
